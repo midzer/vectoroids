@@ -24,10 +24,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL.h>
-#include <SDL_image.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #ifndef NOSOUND
-#include <SDL_mixer.h>
+#include <SDL2/SDL_mixer.h>
 #endif
 
 
@@ -164,7 +164,12 @@ char * mus_game_name = DATA_PREFIX "music/decision.s3m";
 
 /* Globals: */
 
-SDL_Surface * screen, * bkgd;
+SDL_Window * window;
+SDL_Renderer * renderer;
+SDL_Surface * bkgd;
+SDL_Texture * bkgdTexture;
+SDL_Surface * screen;
+SDL_Texture * screenTexture;
 #ifndef NOSOUND
 Mix_Chunk * sounds[NUM_SOUNDS];
 Mix_Music * game_music;
@@ -568,7 +573,7 @@ void draw_thick_line(int x1, int y1, color_type c1,
 void reset_level(void);
 void show_version(void);
 void show_usage(FILE * f, char * prg);
-SDL_Surface * set_vid_mode(unsigned flags);
+void set_vid_mode(unsigned flags);
 void draw_centered_text(char * str, int y, int s, color_type c);
 
 
@@ -702,7 +707,7 @@ int title(void)
   int done, quit;
   int i, snapped, angle, size, counter, x, y, xm, ym, z1, z2, z3;
   SDL_Event event;
-  SDLKey key;
+  SDL_Keycode key;
   Uint32 now_time, last_time;
   char * titlestr = "VECTOROIDS";
   char str[20];
@@ -974,7 +979,12 @@ int title(void)
 
     /* Flush and pause! */
 
-    SDL_Flip(screen);
+    //SDL_Flip(screen);
+    SDL_UpdateTexture(screenTexture, NULL, screen->pixels, screen->pitch);
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, bkgdTexture, NULL, NULL);
+    SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
+    SDL_RenderPresent(renderer);
     
     now_time = SDL_GetTicks();
     
@@ -998,7 +1008,7 @@ int game(void)
   int i, j;
   int num_asteroids_alive;
   SDL_Event event;
-  SDLKey key;
+  SDL_Keycode key;
   int left_pressed, right_pressed, up_pressed, shift_pressed;
   char str[10];
   Uint32 now_time, last_time;
@@ -1804,7 +1814,12 @@ int game(void)
       
       /* Flush and pause! */
       
-      SDL_Flip(screen);
+      //SDL_Flip(screen);
+      SDL_UpdateTexture(screenTexture, NULL, screen->pixels, screen->pitch);
+      SDL_RenderClear(renderer);
+      SDL_RenderCopy(renderer, bkgdTexture, NULL, NULL);
+      SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
+      SDL_RenderPresent(renderer);
       
       now_time = SDL_GetTicks();
       
@@ -2030,7 +2045,7 @@ void setup(int argc, char * argv[])
   
   if (fullscreen)
     {
-      screen = set_vid_mode(SDL_FULLSCREEN | SDL_HWSURFACE);
+      set_vid_mode(SDL_WINDOW_FULLSCREEN_DESKTOP);
       
       if (screen == NULL)
         {
@@ -2045,7 +2060,7 @@ void setup(int argc, char * argv[])
   
   if (!fullscreen)
     {
-      screen = set_vid_mode(0);
+      set_vid_mode(0);
       
       if (screen == NULL)
 	{
@@ -2073,7 +2088,7 @@ void setup(int argc, char * argv[])
       exit(1);
     }
   
-  bkgd = SDL_DisplayFormat(tmp);
+  bkgd = SDL_ConvertSurfaceFormat(tmp, SDL_PIXELFORMAT_RGB888, 0);
   if (bkgd == NULL)
     {
       fprintf(stderr,
@@ -2083,6 +2098,7 @@ void setup(int argc, char * argv[])
 	      "%s\n\n", SDL_GetError());
       exit(1);
     }
+  bkgdTexture = SDL_CreateTextureFromSurface(renderer, bkgd);  
   
   SDL_FreeSurface(tmp);
 
@@ -2165,8 +2181,8 @@ void setup(int argc, char * argv[])
 #endif
   
   
-  seticon();
-  SDL_WM_SetCaption("Vectoroids", "Vectoroids");
+  //seticon();
+  //SDL_WM_SetCaption("Vectoroids", "Vectoroids");
 }
 
 
@@ -2202,7 +2218,7 @@ void seticon(void)
   
   /* Set icon: */
   
-  SDL_WM_SetIcon(icon, mask);
+  //SDL_WM_SetIcon(icon, mask);
   
   
   /* Free icon surface & mask: */
@@ -2994,14 +3010,30 @@ void show_usage(FILE * f, char * prg)
 /* Set video mode: */
 /* Contributed to "Defendguin" by Mattias Engdegard <f91-men@nada.kth.se> */
 
-SDL_Surface * set_vid_mode(unsigned flags)
+void set_vid_mode(unsigned flags)
 {
   /* Prefer 16bpp, but also prefer native modes to emulated 16bpp. */
   
-  int depth;
+  //int depth;
   
-  depth = SDL_VideoModeOK(WIDTH, HEIGHT, 16, flags);
-  return depth ? SDL_SetVideoMode(WIDTH, HEIGHT, depth, flags) : NULL;
+  //depth = SDL_VideoModeOK(WIDTH, HEIGHT, 16, flags);
+  //return depth ? SDL_SetVideoMode(WIDTH, HEIGHT, depth, flags) : NULL;
+
+  window = SDL_CreateWindow("Vectoroids",
+                          SDL_WINDOWPOS_UNDEFINED,
+                          SDL_WINDOWPOS_UNDEFINED,
+                          WIDTH, HEIGHT,
+                          flags);
+  renderer = SDL_CreateRenderer(window, -1, 0);
+  screen = SDL_CreateRGBSurface(0, WIDTH, HEIGHT, 32,
+                                0x00FF0000,
+                                0x0000FF00,
+                                0x000000FF,
+                                0xFF000000);
+  screenTexture = SDL_CreateTexture(renderer,
+                                    SDL_PIXELFORMAT_ARGB8888,
+                                    SDL_TEXTUREACCESS_STREAMING,
+                                    WIDTH, HEIGHT);
 }
 
 
